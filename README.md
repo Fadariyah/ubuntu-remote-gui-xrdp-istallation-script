@@ -1,5 +1,10 @@
 # Remote GUI for Ubuntu VPS (XRDP + Xfce/MATE + Google Chrome)
-
+---
+### tDLR; Use this command
+```bash
+wget -q -O remotegui.sh https://raw.githubusercontent.com/Fadariyah/ubuntu-remote-gui-xrdp-istallation-script/refs/heads/main/remotegui.sh && sudo chmod +x remotegui.sh && sudo ./remotegui.sh
+```
+---
 สคริปต์ `remotegui.sh` ใช้สำหรับติดตั้ง Desktop Environment แบบเบา ๆ (**Xfce** หรือ **MATE minimal**)  
 พร้อมทั้งติดตั้ง **XRDP** เพื่อใช้ Remote Desktop (RDP) และติดตั้ง **Google Chrome** บน Ubuntu Server/VPS
 
@@ -32,7 +37,7 @@
 รันคำสั่งเดียวบน VPS (ในโฟลเดอร์ไหนก็ได้):
 
 ```bash
-wget -q -O remotegui.sh https://raw.githubusercontent.com/Fadariyah/install-LXQt-Xfce-remote-desktop/refs/heads/main/remotegui.sh && sudo chmod +x remotegui.sh && sudo ./remotegui.sh
+wget -q -O remotegui.sh https://raw.githubusercontent.com/Fadariyah/ubuntu-remote-gui-xrdp-istallation-script/refs/heads/main/remotegui.sh && sudo chmod +x remotegui.sh && sudo ./remotegui.sh
 ```
 
 > ปรับ URL ให้ตรงกับ repo/branch ที่คุณใช้จริงบน GitHub ถ้าคุณเปลี่ยนชื่อ repo หรือสาขา
@@ -49,11 +54,9 @@ wget -q -O remotegui.sh https://raw.githubusercontent.com/Fadariyah/install-LXQt
 ### 1. Clone Repo (ถ้าคุณใช้ GitHub repo นี้)
 
 ```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
+git clone https://github.com/Fadariyah/ubuntu-remote-gui-xrdp-istallation-script.git
+cd ubuntu-remote-gui-xrdp-istallation-script
 ```
-
-แก้ `<your-username>` และ `<your-repo>` ให้ตรงกับของคุณ
 
 ### 2. ให้สิทธิ์รันสคริปต์
 
