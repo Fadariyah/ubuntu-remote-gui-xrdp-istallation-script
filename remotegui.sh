@@ -2,7 +2,7 @@
 #
 # remotegui.sh
 # Install Desktop Environment (Xfce / MATE minimal) + XRDP + Google Chrome on Ubuntu Server/VPS
-# After installation, you can connect via Remote Desktop (RDP) from your Desktop machine.
+# หลังติดตั้งเสร็จ สามารถใช้ Remote Desktop (RDP) ต่อจากเครื่อง Desktop ได้ทันที
 
 set -e
 
@@ -91,6 +91,7 @@ select_desktop_env() {
 # Detect target user (for RDP login)
 #-----------------------------
 detect_target_user() {
+    # ถ้าใช้ sudo จะได้ user จริงจาก SUDO_USER
     TARGET_USER="${SUDO_USER:-$USER}"
 
     if [ "$TARGET_USER" = "root" ]; then
@@ -109,9 +110,9 @@ detect_target_user() {
 }
 
 #-----------------------------
-# Install base packages + XRDP
+# Install packages (เหมือน flow ของ Copilot)
 #-----------------------------
-install_common_packages() {
+install_packages() {
     info "Updating package list... / อัปเดตรายการแพ็กเกจ..."
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
@@ -119,19 +120,13 @@ install_common_packages() {
     info "Upgrading packages (this may take a while)... / อัปเกรดแพ็กเกจ (อาจใช้เวลาสักพัก)..."
     apt-get upgrade -y
 
-    info "Installing base packages for GUI + XRDP... / ติดตั้งแพ็กเกจพื้นฐานสำหรับ GUI + XRDP..."
-    apt-get install -y xorg dbus-x11 x11-xserver-utils xinit
+    info "Installing desktop + Xorg + XRDP... / ติดตั้ง Desktop + Xorg + XRDP..."
+    # Desktop + Xorg + xinit เหมือนคำสั่งที่ copilot ใช้
+    apt-get install -y $DE_PACKAGES xorg dbus-x11 x11-xserver-utils xinit
+    # XRDP server
     apt-get install -y xrdp
+    # สำหรับติดตั้ง Chrome
     apt-get install -y wget gnupg
-}
-
-#-----------------------------
-# Install selected Desktop Environment
-#-----------------------------
-install_desktop_env() {
-    info "Installing Desktop Environment: ${DESKTOP_NAME} / ติดตั้ง Desktop Environment: ${DESKTOP_NAME}"
-    apt-get install -y $DE_PACKAGES
-    ok "Desktop Environment installed: ${DESKTOP_NAME} / ติดตั้ง ${DESKTOP_NAME} เสร็จแล้ว"
 }
 
 #-----------------------------
@@ -169,64 +164,54 @@ EOF
 }
 
 #-----------------------------
-# Configure XRDP
+# Configure XRDP (copy Copilot style)
 #-----------------------------
 configure_xrdp() {
     info "Configuring XRDP... / ตั้งค่า XRDP..."
 
-    # Backup original startwm.sh if exists
-    if [ -f /etc/xrdp/startwm.sh ]; then
-        BACKUP_FILE="/etc/xrdp/startwm.sh.bak.$(date +%F-%H%M%S)"
-        cp /etc/xrdp/startwm.sh "$BACKUP_FILE"
-        info "Backed up /etc/xrdp/startwm.sh to $BACKUP_FILE / สำรอง /etc/xrdp/startwm.sh เป็น $BACKUP_FILE"
+    # 1) เขียน ~/.xsession แบบที่ copilot ทำ (สำหรับ user นี้)
+    if [ -d "$USER_HOME" ]; then
+        info "Creating ~/.xsession for user: $TARGET_USER / สร้างไฟล์ ~/.xsession สำหรับ user: $TARGET_USER"
+        echo "${SESSION_CMD}" > "${USER_HOME}/.xsession"
+        chown "${TARGET_USER}:${TARGET_USER}" "${USER_HOME}/.xsession" 2>/dev/null || true
+        chmod +x "${USER_HOME}/.xsession" 2>/dev/null || true
+    else
+        warn "User home not found, skipping ~/.xsession creation / ไม่พบ home ของ user ข้ามการสร้าง ~/.xsession"
     fi
 
-    # Create new startwm.sh similar to your Copilot config
-    cat >/etc/xrdp/startwm.sh <<EOF
+    # 2) เขียน /etc/xrdp/startwm.sh ให้โครงเหมือน copilot (แต่ param เป็น SESSION_CMD)
+    cat >/tmp/startwm.sh <<EOF
 #!/bin/sh
-# startwm.sh configured by remotegui.sh
-# Start selected desktop session (Xfce or MATE)
+# Start ${DESKTOP_NAME} for xrdp sessions
 
 # Load global profile if available
-if [ -r /etc/profile ]; then
-    . /etc/profile
-fi
+if [ -r /etc/profile ]; then . /etc/profile; fi
 
 # Load locale if available
 if [ -r /etc/default/locale ]; then
-    . /etc/default/locale
-    export LANG LANGUAGE
+  . /etc/default/locale
+  export LANG LANGUAGE
 fi
 
-# Ensure XDG_RUNTIME_DIR is set (important for some DE components)
+# Important for some DE components (same idea as Copilot snippet)
 export XDG_RUNTIME_DIR="/run/user/\$(id -u)"
 
-# Start the selected desktop session
-exec ${SESSION_CMD}
-EOF
-
-    chmod +x /etc/xrdp/startwm.sh
-
-    # Add xrdp user to ssl-cert group (for cert access)
-    if getent group ssl-cert >/dev/null 2>&1; then
-        adduser xrdp ssl-cert >/dev/null 2>&1 || true
-    fi
-
-    # Create per-user .xsession like Copilot did
-    if [ -d "$USER_HOME" ]; then
-        info "Creating ~/.xsession for user: $TARGET_USER / สร้างไฟล์ ~/.xsession สำหรับ user: $TARGET_USER"
-
-        # Just the session command (startxfce4 or mate-session)
-        cat >"${USER_HOME}/.xsession" <<EOF
+# Start session
 ${SESSION_CMD}
 EOF
 
-        chown "${TARGET_USER}:${TARGET_USER}" "${USER_HOME}/.xsession" 2>/dev/null || true
-        chmod +x "${USER_HOME}/.xsession" 2>/dev/null || true
+    # 3) backup ไฟล์เดิมแล้วใช้ตัวใหม่แทน
+    if [ -f /etc/xrdp/startwm.sh ]; then
+        cp /etc/xrdp/startwm.sh /etc/xrdp/startwm.sh.bak.$(date +%F-%H%M%S) || true
     fi
+    mv /tmp/startwm.sh /etc/xrdp/startwm.sh
+    chmod +x /etc/xrdp/startwm.sh
 
-    # Enable and restart XRDP
-    systemctl enable --now xrdp >/dev/null 2>&1 || true
+    # 4) เพิ่ม user xrdp เข้า group ssl-cert (เหมือนที่ copilot ทำ)
+    adduser xrdp ssl-cert || true
+
+    # 5) Enable + restart xrdp (เหมือน --now + restart)
+    systemctl enable --now xrdp || true
     systemctl restart xrdp || true
 
     ok "XRDP configured / ตั้งค่า XRDP เสร็จแล้ว"
@@ -306,8 +291,7 @@ main() {
     check_ubuntu
     select_desktop_env
     detect_target_user
-    install_common_packages
-    install_desktop_env
+    install_packages
     install_google_chrome
     configure_xrdp
     configure_firewall
