@@ -120,7 +120,7 @@ install_common_packages() {
     apt-get upgrade -y
 
     info "Installing base packages for GUI + XRDP... / ติดตั้งแพ็กเกจพื้นฐานสำหรับ GUI + XRDP..."
-    apt-get install -y xorg dbus-x11 x11-xserver-utils
+    apt-get install -y xorg dbus-x11 x11-xserver-utils xinit
     apt-get install -y xrdp
     apt-get install -y wget gnupg
 }
@@ -152,7 +152,9 @@ install_google_chrome() {
         return
     fi
 
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+    cat >/etc/apt/sources.list.d/google-chrome.list <<EOF
+deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main
+EOF
 
     if ! apt-get update -y; then
         warn "apt-get update failed after adding Chrome repo. / apt-get update ล้มเหลวหลังเพิ่ม repo Chrome"
@@ -172,45 +174,60 @@ install_google_chrome() {
 configure_xrdp() {
     info "Configuring XRDP... / ตั้งค่า XRDP..."
 
+    # Backup original startwm.sh if exists
     if [ -f /etc/xrdp/startwm.sh ]; then
         BACKUP_FILE="/etc/xrdp/startwm.sh.bak.$(date +%F-%H%M%S)"
         cp /etc/xrdp/startwm.sh "$BACKUP_FILE"
         info "Backed up /etc/xrdp/startwm.sh to $BACKUP_FILE / สำรอง /etc/xrdp/startwm.sh เป็น $BACKUP_FILE"
     fi
 
+    # Create new startwm.sh similar to your Copilot config
     cat >/etc/xrdp/startwm.sh <<EOF
 #!/bin/sh
 # startwm.sh configured by remotegui.sh
+# Start selected desktop session (Xfce or MATE)
 
+# Load global profile if available
+if [ -r /etc/profile ]; then
+    . /etc/profile
+fi
+
+# Load locale if available
 if [ -r /etc/default/locale ]; then
     . /etc/default/locale
     export LANG LANGUAGE
 fi
 
-# Launch selected Desktop Environment
+# Ensure XDG_RUNTIME_DIR is set (important for some DE components)
+export XDG_RUNTIME_DIR="/run/user/\$(id -u)"
+
+# Start the selected desktop session
 exec ${SESSION_CMD}
 EOF
 
     chmod +x /etc/xrdp/startwm.sh
 
+    # Add xrdp user to ssl-cert group (for cert access)
     if getent group ssl-cert >/dev/null 2>&1; then
         adduser xrdp ssl-cert >/dev/null 2>&1 || true
     fi
 
+    # Create per-user .xsession like Copilot did
     if [ -d "$USER_HOME" ]; then
-        info "Creating session file for user: $TARGET_USER / สร้างไฟล์ session สำหรับ user: $TARGET_USER"
+        info "Creating ~/.xsession for user: $TARGET_USER / สร้างไฟล์ ~/.xsession สำหรับ user: $TARGET_USER"
 
+        # Just the session command (startxfce4 or mate-session)
         cat >"${USER_HOME}/.xsession" <<EOF
-#!/bin/sh
-exec ${SESSION_CMD}
+${SESSION_CMD}
 EOF
 
         chown "${TARGET_USER}:${TARGET_USER}" "${USER_HOME}/.xsession" 2>/dev/null || true
         chmod +x "${USER_HOME}/.xsession" 2>/dev/null || true
     fi
 
-    systemctl enable xrdp >/dev/null 2>&1 || true
-    systemctl restart xrdp
+    # Enable and restart XRDP
+    systemctl enable --now xrdp >/dev/null 2>&1 || true
+    systemctl restart xrdp || true
 
     ok "XRDP configured / ตั้งค่า XRDP เสร็จแล้ว"
 }
