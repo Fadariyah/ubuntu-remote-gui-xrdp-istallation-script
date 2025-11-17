@@ -1,6 +1,6 @@
 # Remote GUI for Ubuntu VPS (XRDP + Xfce/MATE + Google Chrome)
 ---
-### tDLR; Use this command
+### TL;DR: Use this command
 ```bash
 wget -q -O remotegui.sh https://raw.githubusercontent.com/Fadariyah/ubuntu-remote-gui-xrdp-istallation-script/refs/heads/main/remotegui.sh && sudo chmod +x remotegui.sh && sudo ./remotegui.sh
 ```
